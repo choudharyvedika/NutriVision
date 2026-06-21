@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
+
+{% block title %}Dashboard · NutriVision{% endblock %}
+{% block page_title %}Hi {{ current_user.name.split(' ')[0] }} 👋{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ url_for('food.food_log_page') }}" class="btn btn-primary btn-sm">{{ icon('plus','icon') }} Log Food</a>
+{% endblock %}
+
+{% block content %}
+
+{# ---------------- Stat cards ---------------- #}
+<div class="stat-grid">
+  <div class="card stat-card hoverable">
+    <div class="stat-icon icon-goal">{{ icon('target') }}</div>
+    <span class="stat-label">Daily Calorie Goal</span>
+    <div class="stat-value">{{ calorie_goal|int }}<small> kcal</small></div>
+  </div>
+  <div class="card stat-card hoverable">
+    <div class="stat-icon icon-eaten">{{ icon('bowl') }}</div>
+    <span class="stat-label">Calories Consumed</span>
+    <div class="stat-value">{{ calories_consumed|int }}<small> kcal</small></div>
+  </div>
+  <div class="card stat-card hoverable">
+    <div class="stat-icon icon-burned">{{ icon('activity') }}</div>
+    <span class="stat-label">Calories Burned</span>
+    <div class="stat-value">{{ calories_burned|int }}<small> kcal</small></div>
+  </div>
+  <div class="card stat-card hoverable">
+    <div class="stat-icon icon-remaining">{{ icon('flame') }}</div>
+    <span class="stat-label">Remaining Calories</span>
+    <div class="stat-value" style="{{ 'color:var(--danger)' if remaining_calories < 0 }}">{{ remaining_calories|int }}<small> kcal</small></div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  {# ============== LEFT COLUMN ============== #}
+  <div class="dash-col">
+
+    {# ---- Calorie ring (signature element) ---- #}
+    {% set raw_pct = (calories_consumed / calorie_goal * 100) if calorie_goal else 0 %}
+    {% set pct = [[raw_pct, 100]|min, 0]|max %}
+    {% set circumference = 540.35 %}
+    {% set offset = circumference * (1 - pct/100) %}
+    <div class="card ring-card hoverable">
+      <div class="card-header" style="width:100%;">
+        <div>
+          <h3>Today's Balance</h3>
+          <p class="subtitle">Consumed vs. your daily goal</p>
+        </div>
+      </div>
+      <div class="ring-wrap">
+        <svg viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="{{ '#E5484D' if remaining_calories < 0 else '#4CAF50' }}"/>
+              <stop offset="100%" stop-color="{{ '#C0392B' if remaining_calories < 0 else '#81C784' }}"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-track" cx="100" cy="100" r="86"></circle>
+          <circle class="ring-progress" cx="100" cy="100" r="86"
+            stroke-dasharray="{{ circumference }}"
+            stroke-dashoffset="{{ offset }}"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-value" style="{{ 'color:var(--danger)' if remaining_calories < 0 }}">{{ remaining_calories|int }}</div>
+          <div class="ring-label">{{ "kcal over" if remaining_calories < 0 else "kcal remaining" }}</div>
+        </div>
+      </div>
+      <div class="ring-legend">
+        <div class="ring-legend-item"><span class="ring-legend-dot" style="background:var(--primary)"></span> Goal {{ calorie_goal|int }}</div>
+        <div class="ring-legend-item"><span class="ring-legend-dot" style="background:#E65100"></span> Eaten {{ calories_consumed|int }}</div>
+        <div class="ring-legend-item"><span class="ring-legend-dot" style="background:#C62828"></span> Burned {{ calories_burned|int }}</div>
+      </div>
+    </div>
+
+    {# ---- Macro breakdown ---- #}
+    <div class="card hoverable">
+      <div class="card-header">
+        <div>
+          <h3>Macro Breakdown</h3>
+          <p class="subtitle">Grams consumed today vs. target</p>
+        </div>
+      </div>
+
+      {% for key, color, consumed, target in [
+        ('Protein','protein', protein_consumed, macro_targets.protein),
+        ('Carbohydrates','carbs', carbs_consumed, macro_targets.carbs),
+        ('Fat','fat', fat_consumed, macro_targets.fat)
+      ] %}
+      {% set mpct = [[(consumed / target * 100) if target else 0, 100]|min, 0]|max %}
+      <div class="progress-row">
+        <div class="progress-row-top">
+          <span class="pname"><span class="dot {{ color }}"></span> {{ key }}</span>
+          <span class="pval">{{ consumed }}g / {{ target|int }}g</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill {{ color }}" style="width:{{ mpct }}%;"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ---- Today's meals ---- #}
+    <div class="card hoverable">
+      <div class="card-header">
+        <div>
+          <h3>Today's Meals</h3>
+          <p class="subtitle">{{ meals.values()|map('length')|sum }} item(s) logged</p>
+        </div>
+        <a href="{{ url_for('food.food_log_page') }}" class="btn btn-ghost btn-sm">View all</a>
+      </div>
+
+      {% set meal_icons = {'breakfast':'🌅','lunch':'☀️','dinner':'🌙','snacks':'🍎'} %}
+      {% if meals.values()|map('length')|sum == 0 %}
+      <div class="empty-state">
+        <div class="empty-icon">{{ icon('bowl') }}</div>
+        <h4>No meals logged yet</h4>
+        <p>Log your first meal of the day to start tracking calories and macros.</p>
+      </div>
+      {% else %}
+      {% for meal_type, logs in meals.items() %}
+        {% if logs %}
+        <div class="list-row">
+          <div class="list-row-main">
+            <div class="list-row-icon">{{ meal_icons[meal_type] }}</div>
+            <div>
+              <div class="list-row-title">{{ meal_type|capitalize }}</div>
+              <div class="list-row-sub">{{ logs|length }} item(s)</div>
+            </div>
+          </div>
+          <div class="list-row-cal">{{ meal_totals[meal_type]|int }} kcal</div>
+        </div>
+        {% endif %}
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  {# ============== RIGHT COLUMN ============== #}
+  <div class="dash-col">
+
+    {# ---- Water widget ---- #}
+    {% set wpct = [[(water_consumed / water_goal * 100) if water_goal else 0, 100]|min, 0]|max %}
+    {% set wcirc = 238.76 %}
+    {% set woffset = wcirc * (1 - wpct/100) %}
+    <div class="card hoverable">
+      <div class="card-header">
+        <div>
+          <h3>Water Intake</h3>
+          <p class="subtitle">Goal: {{ water_goal }} ml</p>
+        </div>
+        <a href="{{ url_for('water.water_page') }}" class="btn btn-ghost btn-sm">{{ icon('droplet','icon') }}</a>
+      </div>
+      <div class="water-widget">
+        <div class="water-mini-ring">
+          <svg viewBox="0 0 90 90">
+            <circle class="track" cx="45" cy="45" r="38"></circle>
+            <circle class="fill" cx="45" cy="45" r="38" stroke-dasharray="{{ wcirc }}" stroke-dashoffset="{{ woffset }}"></circle>
+          </svg>
+          <div class="icon-center">💧</div>
+        </div>
+        <div style="flex:1;">
+          <div class="stat-value" style="font-size:22px;">{{ water_consumed }}<small> / {{ water_goal }} ml</small></div>
+          <div class="progress-track mt-8"><div class="progress-fill water" style="width:{{ wpct }}%;"></div></div>
+          <a href="{{ url_for('water.water_page') }}" class="btn btn-secondary btn-sm mt-14">+ Add water</a>
+        </div>
+      </div>
+    </div>
+
+    {# ---- Weight progress ---- #}
+    <div class="card hoverable">
+      <div class="card-header">
+        <div>
+          <h3>Weight Progress</h3>
+          <p class="subtitle">{{ "Goal: " ~ goal_weight ~ " kg" if goal_weight else "Set a goal weight in your profile" }}</p>
+        </div>
+        <a href="{{ url_for('weight.weight_page') }}" class="btn btn-ghost btn-sm">{{ icon('scale','icon') }}</a>
+      </div>
+      <div class="flex-between">
+        <div>
+          <div class="stat-label">Current</div>
+          <div class="stat-value">{{ latest_weight if latest_weight else '—' }}<small> kg</small></div>
+        </div>
+        {% if goal_weight and latest_weight %}
+        <div style="text-align:right;">
+          <div class="stat-label">To go</div>
+          <div class="stat-value" style="font-size:20px;">{{ (latest_weight - goal_weight)|round(1) }}<small> kg</small></div>
+        </div>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('weight.weight_page') }}" class="btn btn-secondary btn-sm btn-block mt-14">+ Log weight</a>
+    </div>
+
+    {# ---- 7-day trend ---- #}
+    <div class="card hoverable">
+      <div class="card-header">
+        <div>
+          <h3>7-Day Calorie Trend</h3>
+          <p class="subtitle">Intake over the last week</p>
+        </div>
+      </div>
+      <canvas id="trendChart" height="160"></canvas>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+  const trendLabels = {{ trend_labels|tojson }};
+  const trendCalories = {{ trend_calories|tojson }};
+  const calorieGoalLine = {{ calorie_goal|int }};
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

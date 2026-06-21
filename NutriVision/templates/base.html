@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}NutriVision{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>🥗</text></svg>">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+{% from "partials/icons.html" import icon %}
+
+<div class="flash-stack" id="flashStack">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ 'error' if category == 'error' else category }}">
+        {{ icon('alert-circle' if category == 'error' else 'check-circle') }}
+        <span>{{ message }}</span>
+        <button class="flash-close" onclick="this.parentElement.remove()">{{ icon('x') }}</button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+<div class="app-shell">
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-mark">🥗</div>
+      <div class="logo-text">Nutri<span>Vision</span></div>
+    </div>
+
+    <p class="sidebar-section-label">Overview</p>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'dashboard.home' }}" href="{{ url_for('dashboard.home') }}">
+        {{ icon('home') }} Dashboard
+      </a>
+    </nav>
+
+    <p class="sidebar-section-label">Track</p>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'food.food_log_page' }}" href="{{ url_for('food.food_log_page') }}">
+        {{ icon('bowl') }} Food Log
+      </a>
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'exercise.exercise_page' }}" href="{{ url_for('exercise.exercise_page') }}">
+        {{ icon('activity') }} Exercise
+      </a>
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'water.water_page' }}" href="{{ url_for('water.water_page') }}">
+        {{ icon('droplet') }} Water
+      </a>
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'weight.weight_page' }}" href="{{ url_for('weight.weight_page') }}">
+        {{ icon('scale') }} Weight
+      </a>
+    </nav>
+
+    <p class="sidebar-section-label">Insights</p>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'reports.reports_page' }}" href="{{ url_for('reports.reports_page') }}">
+        {{ icon('bar-chart') }} Reports
+      </a>
+      <a class="sidebar-link {{ 'active' if request.endpoint == 'profile.edit_profile' }}" href="{{ url_for('profile.edit_profile') }}">
+        {{ icon('settings') }} Profile
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      {% if current_user.is_authenticated %}
+      <div class="sidebar-user">
+        <div class="avatar">{{ current_user.name[:1]|upper }}</div>
+        <div class="user-meta">
+          <div class="user-name">{{ current_user.name }}</div>
+          <div class="user-goal">{{ {'weight_loss':'Losing weight','maintenance':'Maintaining','weight_gain':'Gaining weight'}.get(current_user.goal, 'Set a goal') }}</div>
+        </div>
+      </div>
+      <a class="sidebar-logout" href="{{ url_for('auth.logout') }}">{{ icon('logout') }} Log out</a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="flex gap-14" style="align-items:center;">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">{{ icon('menu') }}</button>
+        <div class="topbar-title">
+          <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+          <p>{% block page_subtitle %}{{ today.strftime('%A, %B') }} {{ today.day }}{% endblock %}</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}{% endblock %}
+      </div>
+    </header>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

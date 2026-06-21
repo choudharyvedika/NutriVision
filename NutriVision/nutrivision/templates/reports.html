@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
+
+{% block title %}Reports · NutriVision{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block page_subtitle %}Daily, weekly and monthly insights into your progress{% endblock %}
+
+{% block topbar_actions %}
+<div class="pill-tabs" id="reportTabs">
+  <button class="pill-tab active" data-tab="daily">Daily</button>
+  <button class="pill-tab" data-tab="weekly">Weekly</button>
+  <button class="pill-tab" data-tab="monthly">Monthly</button>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="date-nav">
+    <button id="periodPrev" aria-label="Previous period">{{ icon('chevron-left') }}</button>
+    <span class="date-label" id="periodLabel">Today</span>
+    <button id="periodNext" aria-label="Next period">{{ icon('chevron-right') }}</button>
+  </div>
+  <button class="btn btn-ghost btn-sm" id="periodToday">Jump to today</button>
+</div>
+
+{# ---------------- Metric cards (re-rendered per tab) ---------------- #}
+<div class="stat-grid" id="metricGrid"></div>
+
+<div class="dash-grid" style="grid-template-columns: 1.3fr 1fr;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 id="chartTitle">Calories — Today</h3>
+        <p class="subtitle" id="chartSubtitle">vs. your daily goal</p>
+      </div>
+    </div>
+    <canvas id="reportChart" height="240"></canvas>
+  </div>
+
+  <div class="card-solid">
+    <p class="card-eyebrow mb-14">Macro split</p>
+    <canvas id="macroDoughnut" height="200"></canvas>
+    <div class="macro-chip-row" id="macroChipRow"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const INITIAL_DAILY = {{ daily|tojson }};
+  const CALORIE_GOAL = {{ calorie_goal|int }};
+  const MACRO_TARGETS = {{ macro_targets|tojson }};
+  const TODAY_ISO = "{{ today.isoformat() }}";
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}
