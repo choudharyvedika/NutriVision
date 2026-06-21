@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
+
+{% block title %}Food Log · NutriVision{% endblock %}
+{% block page_title %}Food Log{% endblock %}
+{% block page_subtitle %}{{ selected_date.strftime('%A, %B') }} {{ selected_date.day }}{% endblock %}
+
+{% block topbar_actions %}
+<div class="date-nav">
+  <a href="{{ url_for('food.food_log_page', date=prev_date.isoformat()) }}" aria-label="Previous day">{{ icon('chevron-left') }}</a>
+  <span class="date-label">{{ "Today" if is_today else selected_date.strftime('%b %d') }}</span>
+  <a href="{{ url_for('food.food_log_page', date=next_date.isoformat()) }}" aria-label="Next day">{{ icon('chevron-right') }}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{# ---------------- Search + today's totals ---------------- #}
+<div class="dash-grid" style="grid-template-columns: 1.3fr 1fr;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Add a food</h3>
+        <p class="subtitle">Search our database of 60+ foods</p>
+      </div>
+    </div>
+    <div class="search-bar">
+      {{ icon('search', 'search-icon') }}
+      <input type="text" class="input" id="foodSearchInput" placeholder="Search for chicken breast, banana, rice…" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <p class="help-text">Tip: click a result to choose a meal and quantity.</p>
+  </div>
+
+  <div class="card-solid">
+    <p class="card-eyebrow mb-14">Today's totals</p>
+    {% set pct = [[(totals.calories / calorie_goal * 100) if calorie_goal else 0, 100]|min, 0]|max %}
+    <div class="flex-between mb-8">
+      <span class="text-sm" style="font-weight:700;">{{ totals.calories|int }} kcal</span>
+      <span class="text-sm text-muted">of {{ calorie_goal|int }} kcal</span>
+    </div>
+    <div class="progress-track mb-18"><div class="progress-fill {{ 'danger' if pct >= 100 }}" style="width:{{ pct }}%;"></div></div>
+    <div class="macro-chip-row">
+      <div class="macro-chip protein"><div class="mval">{{ totals.protein }}g</div><div class="mlbl">Protein</div></div>
+      <div class="macro-chip carbs"><div class="mval">{{ totals.carbs }}g</div><div class="mlbl">Carbs</div></div>
+      <div class="macro-chip fat"><div class="mval">{{ totals.fat }}g</div><div class="mlbl">Fat</div></div>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Meal sections ---------------- #}
+{% set meal_meta = {
+  'breakfast': ('🌅','Breakfast'),
+  'lunch': ('☀️','Lunch'),
+  'dinner': ('🌙','Dinner'),
+  'snacks': ('🍎','Snacks')
+} %}
+
+<div class="grid-2 mt-18">
+{% for meal_type in meal_types %}
+  {% set emoji, label = meal_meta[meal_type] %}
+  <div class="card meal-card" data-meal="{{ meal_type }}">
+    <div class="card-header meal-card-header">
+      <div class="meal-title">
+        <span class="meal-icon">{{ emoji }}</span>
+        <h3>{{ label }}</h3>
+      </div>
+      <span class="meal-cal" data-meal-total="{{ meal_type }}">
+        {{ meals[meal_type]|sum(attribute='calories')|round|int }} kcal
+      </span>
+    </div>
+
+    <div class="meal-items" id="meal-{{ meal_type }}">
+      {% for log in meals[meal_type] %}
+      <div class="list-row" data-log-id="{{ log.id }}">
+        <div class="list-row-main">
+          <div class="list-row-icon">{{ icon('bowl') }}</div>
+          <div>
+            <div class="list-row-title">{{ log.food.food_name }}</div>
+            <div class="list-row-sub">{{ log.quantity }}× {{ log.food.serving_size }} · P{{ log.protein }}g C{{ log.carbs }}g F{{ log.fat }}g</div>
+          </div>
+        </div>
+        <div class="list-row-meta">
+          <span class="list-row-cal">{{ log.calories|int }} kcal</span>
+          <button class="row-delete" data-delete-food-log="{{ log.id }}" aria-label="Remove">{{ icon('trash') }}</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if not meals[meal_type] %}
+    <div class="empty-state empty-meal" style="padding:26px 10px;">
+      <p class="text-sm">No items logged for {{ label|lower }} yet.</p>
+    </div>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+
+{# ---------------- Add-to-log modal ---------------- #}
+<div class="modal-backdrop" id="addFoodModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalFoodName">Add food</h3>
+      <button class="modal-close" id="closeFoodModal">{{ icon('x') }}</button>
+    </div>
+    <p class="text-sm text-muted mb-14" id="modalServingSize"></p>
+
+    <div class="form-group">
+      <label for="modalQuantity">Quantity (× serving)</label>
+      <input type="number" class="input" id="modalQuantity" value="1" min="0.25" max="50" step="0.25">
+    </div>
+
+    <div class="form-group">
+      <label>Meal</label>
+      <div class="segmented cols-2">
+        {% for meal_type in meal_types %}
+        {% set emoji, label = meal_meta[meal_type] %}
+        <input type="radio" name="modalMealType" id="meal_opt_{{ meal_type }}" value="{{ meal_type }}" {{ 'checked' if loop.first }}>
+        <label class="option" for="meal_opt_{{ meal_type }}">{{ emoji }} {{ label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="macro-chip-row" id="modalMacroPreview">
+      <div class="macro-chip"><div class="mval" id="previewCal">0</div><div class="mlbl">kcal</div></div>
+      <div class="macro-chip protein"><div class="mval" id="previewProtein">0g</div><div class="mlbl">Protein</div></div>
+      <div class="macro-chip carbs"><div class="mval" id="previewCarbs">0g</div><div class="mlbl">Carbs</div></div>
+      <div class="macro-chip fat"><div class="mval" id="previewFat">0g</div><div class="mlbl">Fat</div></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary w-full" id="cancelAddFood">Cancel</button>
+      <button class="btn btn-primary w-full" id="confirmAddFood">Add to log</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const SELECTED_DATE = "{{ selected_date.isoformat() }}";
+  const CALORIE_GOAL = {{ calorie_goal|int }};
+</script>
+<script src="{{ url_for('static', filename='js/food.js') }}"></script>
+{% endblock %}
